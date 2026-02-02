@@ -102,5 +102,8 @@ python read.py
 ==================================================
 ```
 
+![Dashboard](assets/dashboard.png)
+
+
 ## 📜 License
 This software is licensed under the **Mozilla Public License Version 2.0**. See the [LICENSE.txt](LICENSE.txt) file for full details.
