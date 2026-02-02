@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fog & Enviro Monitor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body {
+            background: linear-gradient(135deg, #1a1c2c 0%, #4a192c 100%);
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="p-6">
+
+    <!-- Header -->
+    <header class="mb-8 flex justify-between items-center glass p-4 rounded-xl shadow-lg">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-satellite-dish text-3xl text-blue-400"></i>
+            <div>
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                    FogNet Sentinel
+                </h1>
+                <p class="text-xs text-gray-400">Real-time Environmental Monitoring</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <div id="clock" class="text-xl font-mono font-bold">--:--:--</div>
+            <div id="status-indicator" class="text-xs text-green-400 flex items-center justify-end gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> LIVE
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column: Metrics -->
+        <div class="space-y-6">
+            
+            <!-- AQI Card -->
+            <div class="glass p-6 rounded-2xl relative overflow-hidden group hover:bg-white/5 transition">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <i class="fa-solid fa-lungs text-6xl"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-semibold uppercase tracking-widest">PM2.5 Conc.</h3>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="pm-value" class="text-5xl font-bold text-white">--</span>
+                    <span class="text-xl text-gray-400">µg/m³</span>
+                </div>
+                <div id="pm-status" class="mt-4 inline-block px-3 py-1 rounded-full text-sm font-bold bg-gray-700 text-gray-300">
+                    Waiting...
+                </div>
+            </div>
+
+            <!-- Temperature Card -->
+            <div class="glass p-6 rounded-2xl relative overflow-hidden group hover:bg-white/5 transition">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                    <i class="fa-solid fa-temperature-half text-6xl text-orange-400"></i>
+                </div>
+                <h3 class="text-gray-400 text-sm font-semibold uppercase tracking-widest">Temperature</h3>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="temp-value" class="text-5xl font-bold text-white">--</span>
+                    <span class="text-xl text-gray-400">°C</span>
+                </div>
+                <div class="mt-2 text-sm text-gray-500">
+                    Sensor: Modulino NTC
+                </div>
+            </div>
+
+            <!-- Visibility / Fog Card -->
+            <div id="fog-card" class="glass p-6 rounded-2xl border-l-4 border-gray-500 transition-colors duration-500">
+                <h3 class="text-gray-400 text-sm font-semibold uppercase tracking-widest">Visibility Status</h3>
+                <div class="mt-4 flex items-center gap-4">
+                    <i id="fog-icon" class="fa-solid fa-eye text-4xl text-gray-400"></i>
+                    <div>
+                        <div id="fog-label" class="text-2xl font-bold">Initializing...</div>
+                        <div id="fog-score" class="text-sm opacity-70">Conf: 0.00%</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Middle Column: Graphs -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Historical Chart -->
+            <div class="glass p-6 rounded-2xl h-96">
+                <h3 class="text-gray-400 text-sm font-semibold mb-4">Historical Trends (Last 50 pts)</h3>
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Camera Feed Mockup (Optional Expansion) -->
+    <!-- Could add an img tag here pointing to a stream if available -->
+
+    <script>
+        // --- Configuration ---
+        const API_URL = '/api/status';
+        const HISTORY_URL = '/api/history';
+        let isDemoMode = false;
+        let demoInterval = null;
+
+        // --- Chart Setup ---
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'PM2.5',
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        data: [],
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Temperature',
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.0)',
+                        data: [],
+                        tension: 0.4,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#cbd5e1' } }
+                },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#94a3b8' } },
+                    x: { display: false } // Hide time labels for cleanliness
+                }
+            }
+        });
+
+        // --- Core Functions ---
+
+        function updateUI(data) {
+            // Update Clock
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+
+            // 1. PM2.5
+            const pm = data.pm25 || {};
+            const pmVal = pm.value !== undefined ? pm.value : '--';
+            const pmElem = document.getElementById('pm-value');
+            const pmStatus = document.getElementById('pm-status');
+            
+            pmElem.innerText = pmVal;
+
+            if (pmVal !== '--') {
+                if (pmVal < 12) {
+                    pmStatus.className = "mt-4 inline-block px-3 py-1 rounded-full text-sm font-bold bg-green-500/20 text-green-400";
+                    pmStatus.innerText = "Good";
+                } else if (pmVal < 35) {
+                    pmStatus.className = "mt-4 inline-block px-3 py-1 rounded-full text-sm font-bold bg-yellow-500/20 text-yellow-400";
+                    pmStatus.innerText = "Moderate";
+                } else {
+                    pmStatus.className = "mt-4 inline-block px-3 py-1 rounded-full text-sm font-bold bg-red-500/20 text-red-400";
+                    pmStatus.innerText = "Unhealthy";
+                }
+            }
+
+            // 2. Temperature
+            const temp = data.temp || {};
+            document.getElementById('temp-value').innerText = temp.value !== undefined ? temp.value.toFixed(1) : '--';
+
+            // 3. Fog
+            const fog = data.fog || {};
+            const fogLabel = fog.label || 'Offline';
+            const fogScore = fog.score || 0;
+            const fogCard = document.getElementById('fog-card');
+            const fogIcon = document.getElementById('fog-icon');
+            
+            document.getElementById('fog-label').innerText = fogLabel;
+            document.getElementById('fog-score').innerText = `Conf: ${(fogScore*100).toFixed(1)}%`;
+
+            if (fogLabel === 'Foggy') {
+                fogCard.className = "glass p-6 rounded-2xl border-l-4 border-red-500 bg-red-500/10 transition-colors duration-500";
+                fogIcon.className = "fa-solid fa-smog text-4xl text-red-400 animate-pulse";
+            } else if (fogLabel === 'Offline') {
+                 fogCard.className = "glass p-6 rounded-2xl border-l-4 border-gray-500 transition-colors duration-500";
+                 fogIcon.className = "fa-solid fa-eye-slash text-4xl text-gray-400";
+            } else {
+                fogCard.className = "glass p-6 rounded-2xl border-l-4 border-emerald-500 transition-colors duration-500";
+                fogIcon.className = "fa-solid fa-sun text-4xl text-emerald-400";
+            }
+        }
+
+        async function fetchHistory() {
+            if (isDemoMode) return;
+            try {
+                const res = await fetch(HISTORY_URL);
+                const history = await res.json();
+                
+                // Process for Chart
+                const pmData = [];
+                const tempData = [];
+                const labels = [];
+                
+                history.forEach(pt => {
+                    labels.push(pt.time_str);
+                    pmData.push(pt.pm25.value || null);
+                    tempData.push(pt.temp.value || null);
+                });
+
+                trendChart.data.labels = labels;
+                trendChart.data.datasets[0].data = pmData;
+                trendChart.data.datasets[1].data = tempData;
+                trendChart.update();
+                
+                // Also update current UI with latest point
+                if (history.length > 0) {
+                    updateUI(history[history.length - 1]);
+                }
+
+            } catch (e) {
+                console.log("Offline mode or fetching error");
+            }
+        }
+
+        // --- Demo Mode Logic ---
+        window.demo = function() {
+            if (isDemoMode) return;
+            isDemoMode = true;
+            console.log("🚀 DEMO MODE ACTIVATED");
+            
+            document.getElementById('status-indicator').innerHTML = '<span class="text-orange-400">⚠️ DEMO MODE</span>';
+
+            let t = 25;
+            let pm = 10;
+            let timeStep = 0;
+
+            demoInterval = setInterval(() => {
+                // Generate Random Walk Data
+                t += (Math.random() - 0.5);
+                pm += (Math.random() - 0.5) * 5;
+                if (pm < 0) pm = 0;
+                
+                const isFoggy = Math.random() > 0.8;
+                
+                const mockData = {
+                    pm25: { value: Math.floor(pm), unit: 'µg/m³' },
+                    temp: { value: t, unit: '°C' },
+                    fog: { 
+                        label: isFoggy ? 'Foggy' : 'Non-Foggy', 
+                        score: Math.random() 
+                    },
+                    timestamp: Date.now()
+                };
+
+                // Update UI directly
+                updateUI(mockData);
+
+                // Update Chart
+                if (trendChart.data.labels.length > 50) {
+                    trendChart.data.labels.shift();
+                    trendChart.data.datasets[0].data.shift();
+                    trendChart.data.datasets[1].data.shift();
+                }
+                trendChart.data.labels.push(new Date().toLocaleTimeString());
+                trendChart.data.datasets[0].data.push(Math.floor(pm));
+                trendChart.data.datasets[1].data.push(t);
+                trendChart.update('none'); // 'none' for smooth animation
+
+            }, 1000);
+        };
+
+        // --- Init ---
+        setInterval(() => {
+            if (!isDemoMode) fetchHistory();
+        }, 2000); // reduced poll rate for UI responsiveness
+
+        console.log("Loaded. Type demo() in console to start demo mode.");
+    </script>
+</body>
+</html>
