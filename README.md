@@ -24,8 +24,8 @@ This project is a comprehensive monitoring solution that combines computer visio
 
 ## 🛠️ Hardware Requirements
 
-1.  **Host Computer**: Raspberry Pi 4 (recommended) or Linux PC/WSL.
-2.  **Microcontroller**: Arduino Board (compatible with `Arduino_RouterBridge` and Portenta/Modulino carrier).
+1.  **Host Computer**: Arduino UNO Q.
+2.  **Microcontroller**: Arduino UNO Q Board (compatible with `Arduino_RouterBridge` and Portenta/Modulino carrier).
 3.  **Sensors**:
     *   **PMS7003**: Particulate Matter sensor (PM2.5).
     *   **NTC Thermistor**: For temperature sensing (connected to Analog Pin A0).
@@ -40,7 +40,7 @@ This project is a comprehensive monitoring solution that combines computer visio
 4.  Select the correct Port and Board type.
 5.  **Upload** the sketch.
 
-### Phase 2: Host Software (Linux/WSL)
+### Phase 2: Host Software (Linux)
 
 1.  **Environment Setup**:
     It is recommended to use a virtual environment.
