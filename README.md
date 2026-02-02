@@ -42,15 +42,7 @@ This project is a comprehensive monitoring solution that combines computer visio
 
 ### Phase 2: Host Software (Linux/WSL)
 
-1.  **Clone/Organize**:
-    If you haven't already, run the setup script to organize the files:
-    ```bash
-    bash setup_repo.sh
-    # OR on Windows
-    setup_repo.bat
-    ```
-
-2.  **Environment Setup**:
+1.  **Environment Setup**:
     It is recommended to use a virtual environment.
     ```bash
     python -m venv venv
@@ -58,7 +50,7 @@ This project is a comprehensive monitoring solution that combines computer visio
     # venv\Scripts\activate   # Windows
     ```
 
-3.  **Install Dependencies**:
+2.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
